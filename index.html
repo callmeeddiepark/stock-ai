@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock AI</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard">
+<style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface2: #1c1c1c;
+  --border: #262626;
+  --text: #f0f0f0;
+  --text2: #777;
+  --accent: #4ade80;
+  --red: #f87171;
+  --blue: #60a5fa;
+  --yellow: #facc15;
+  --purple: #c084fc;
+}
+body { background: var(--bg); color: var(--text); font-family: 'Pretendard', -apple-system, system-ui, sans-serif; min-height: 100vh; }
+
+/* Header */
+.header { display:flex; align-items:center; justify-content:space-between; padding:16px 24px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:10; }
+.logo { font-size:18px; font-weight:800; letter-spacing:-0.02em; }
+.logo span { color:var(--accent); }
+.header-right { display:flex; align-items:center; gap:10px; }
+.live-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.live-label { font-size:12px; color:var(--accent); font-weight:600; }
+.btn-outline { background:none; border:1px solid var(--border); color:var(--text2); padding:8px 14px; font-size:13px; cursor:pointer; border-radius:6px; transition:all 0.2s; font-family:inherit; }
+.btn-outline:hover { border-color:var(--text2); color:var(--text); }
+
+/* Search */
+.search-wrap { padding:28px 24px 0; max-width:800px; margin:0 auto; }
+.search-row { display:flex; gap:10px; }
+.search-input { flex:1; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:14px 18px; font-size:16px; border-radius:8px; outline:none; transition:border-color 0.2s; font-family:inherit; }
+.search-input::placeholder { color:var(--text2); }
+.search-input:focus { border-color:var(--accent); }
+.search-btn { background:var(--accent); color:#000; border:none; padding:14px 22px; font-size:15px; font-weight:700; border-radius:8px; cursor:pointer; transition:opacity 0.2s; white-space:nowrap; font-family:inherit; }
+.search-btn:hover { opacity:0.85; }
+.search-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.search-hint { margin-top:8px; font-size:12px; color:var(--text2); }
+
+/* Tabs */
+.tabs { display:flex; gap:4px; margin-top:16px; }
+.tab { background:none; border:none; color:var(--text2); padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer; border-radius:6px; font-family:inherit; transition:all 0.2s; }
+.tab:hover { color:var(--text); }
+.tab.active { background:var(--surface2); color:var(--text); }
+
+/* Main */
+.main { max-width:800px; margin:0 auto; padding:20px 24px 60px; display:flex; flex-direction:column; gap:16px; }
+
+/* Stock card */
+.stock-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; }
+.stock-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px; gap:12px; }
+.stock-ticker { font-size:12px; color:var(--text2); font-weight:600; letter-spacing:0.08em; margin-bottom:4px; }
+.stock-name { font-size:22px; font-weight:800; line-height:1.2; }
+.stock-price-wrap { text-align:right; flex-shrink:0; }
+.stock-price { font-size:28px; font-weight:800; letter-spacing:-0.02em; }
+.stock-change { font-size:14px; font-weight:600; margin-top:2px; }
+.refresh-time { font-size:11px; color:var(--text2); margin-top:4px; }
+.up { color:var(--accent); }
+.down { color:var(--red); }
+.chart-wrap { height:160px; position:relative; }
+.stock-meta { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:20px; padding-top:20px; border-top:1px solid var(--border); }
+.meta-item {}
+.meta-label { font-size:11px; color:var(--text2); font-weight:600; letter-spacing:0.06em; margin-bottom:4px; }
+.meta-value { font-size:14px; font-weight:700; }
+.watch-btn { display:flex; align-items:center; gap:8px; background:none; border:1px solid var(--border); color:var(--text2); padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer; border-radius:6px; font-family:inherit; transition:all 0.2s; margin-top:16px; }
+.watch-btn:hover { border-color:var(--yellow); color:var(--yellow); }
+.watch-btn.watching { border-color:var(--yellow); color:var(--yellow); }
+.watch-btn svg { width:14px; height:14px; }
+
+/* Financials */
+.fin-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; }
+.fin-title { font-size:15px; font-weight:700; margin-bottom:16px; }
+.fin-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+.fin-item { background:var(--surface2); border-radius:8px; padding:14px; }
+.fin-item-label { font-size:11px; color:var(--text2); font-weight:600; letter-spacing:0.06em; margin-bottom:6px; }
+.fin-item-value { font-size:16px; font-weight:800; }
+.fin-item-sub { font-size:12px; color:var(--text2); margin-top:2px; }
+
+/* AI card */
+.ai-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; }
+.ai-header { display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+.ai-badge { background:var(--accent); color:#000; font-size:10px; font-weight:800; letter-spacing:0.1em; padding:4px 8px; border-radius:4px; }
+.ai-title { font-size:15px; font-weight:700; }
+.verdict { display:flex; align-items:center; gap:14px; padding:16px; background:var(--surface2); border-radius:8px; margin-bottom:16px; }
+.verdict-badge { font-size:20px; font-weight:900; letter-spacing:-0.02em; padding:10px 18px; border-radius:8px; white-space:nowrap; }
+.verdict-buy { background:rgba(74,222,128,0.15); color:var(--accent); }
+.verdict-sell { background:rgba(248,113,113,0.15); color:var(--red); }
+.verdict-hold { background:rgba(250,204,21,0.15); color:var(--yellow); }
+.verdict-text { font-size:14px; color:var(--text2); line-height:1.6; }
+.underval-row { display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--surface2); border-radius:8px; margin-bottom:16px; }
+.underval-label { font-size:12px; color:var(--text2); font-weight:600; flex-shrink:0; }
+.underval-bar-wrap { flex:1; height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+.underval-bar { height:100%; border-radius:3px; transition:width 0.6s; }
+.underval-score { font-size:14px; font-weight:800; flex-shrink:0; width:36px; text-align:right; }
+.factors-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px; }
+@media(max-width:520px) { .factors-grid{grid-template-columns:1fr} .stock-meta{grid-template-columns:repeat(2,1fr)} .fin-grid{grid-template-columns:1fr} }
+.factor-box { background:var(--surface2); border-radius:8px; padding:16px; }
+.factor-label { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; letter-spacing:0.06em; margin-bottom:12px; }
+.factor-label svg { width:14px; height:14px; }
+.label-pos { color:var(--accent); }
+.label-neg { color:var(--red); }
+.factor-list { list-style:none; display:flex; flex-direction:column; gap:8px; }
+.factor-list li { font-size:13px; color:var(--text2); line-height:1.5; padding-left:14px; position:relative; }
+.factor-list li::before { content:'·'; position:absolute; left:0; color:var(--text2); }
+.outlook-box { background:var(--surface2); border-radius:8px; padding:16px; }
+.outlook-label { font-size:12px; font-weight:700; letter-spacing:0.06em; color:var(--blue); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.outlook-label svg { width:14px; height:14px; }
+.outlook-text { font-size:14px; color:var(--text2); line-height:1.7; }
+
+/* Screener */
+.screener-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; }
+.screener-title { font-size:15px; font-weight:700; margin-bottom:6px; }
+.screener-desc { font-size:13px; color:var(--text2); margin-bottom:20px; line-height:1.5; }
+.screener-inputs { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+.screener-input-group { display:flex; flex-direction:column; gap:6px; }
+.screener-input-group label { font-size:12px; color:var(--text2); font-weight:600; }
+.screener-input { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:8px 12px; font-size:14px; border-radius:6px; outline:none; font-family:inherit; width:100px; }
+.screener-input:focus { border-color:var(--accent); }
+.screener-btn { background:var(--accent); color:#000; border:none; padding:10px 18px; font-size:14px; font-weight:700; border-radius:8px; cursor:pointer; font-family:inherit; align-self:flex-end; transition:opacity 0.2s; }
+.screener-btn:hover { opacity:0.85; }
+.screener-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.screener-results { display:flex; flex-direction:column; gap:10px; }
+.screener-item { background:var(--surface2); border-radius:8px; padding:16px; cursor:pointer; transition:border 0.2s; border:1px solid transparent; }
+.screener-item:hover { border-color:var(--accent); }
+.screener-item-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.screener-item-name { font-size:15px; font-weight:700; }
+.screener-item-score { font-size:13px; font-weight:700; padding:4px 10px; border-radius:4px; }
+.score-high { background:rgba(74,222,128,0.15); color:var(--accent); }
+.score-mid { background:rgba(250,204,21,0.15); color:var(--yellow); }
+.screener-item-metrics { display:flex; gap:16px; flex-wrap:wrap; }
+.screener-metric { font-size:12px; color:var(--text2); }
+.screener-metric span { color:var(--text); font-weight:600; margin-left:4px; }
+.screener-item-reason { font-size:13px; color:var(--text2); margin-top:10px; line-height:1.5; border-top:1px solid var(--border); padding-top:10px; }
+
+/* Watchlist */
+.watchlist-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px 24px; }
+.watchlist-title { font-size:14px; font-weight:700; color:var(--text2); letter-spacing:0.06em; margin-bottom:14px; }
+.watchlist-empty { font-size:13px; color:var(--text2); padding:8px 0; }
+.watchlist-items { display:flex; flex-direction:column; gap:2px; }
+.watchlist-item { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-radius:8px; cursor:pointer; transition:background 0.15s; gap:12px; }
+.watchlist-item:hover { background:var(--surface2); }
+.watchlist-item-ticker { font-size:14px; font-weight:700; min-width:90px; }
+.watchlist-item-name { font-size:12px; color:var(--text2); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.watchlist-item-remove { background:none; border:none; color:var(--text2); cursor:pointer; padding:4px; border-radius:4px; display:flex; align-items:center; transition:color 0.2s; }
+.watchlist-item-remove:hover { color:var(--red); }
+.watchlist-item-remove svg { width:14px; height:14px; }
+
+/* Modal */
+.modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:100; align-items:center; justify-content:center; padding:24px; }
+.modal-backdrop.open { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:28px; width:100%; max-width:440px; }
+.modal-title { font-size:18px; font-weight:800; margin-bottom:6px; }
+.modal-desc { font-size:13px; color:var(--text2); margin-bottom:20px; line-height:1.5; }
+.modal label { display:block; font-size:13px; color:var(--text2); font-weight:600; margin-bottom:8px; }
+.modal input { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:12px 14px; font-size:14px; border-radius:8px; outline:none; font-family:monospace; transition:border-color 0.2s; margin-bottom:20px; }
+.modal input:focus { border-color:var(--accent); }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+.btn-cancel { background:none; border:1px solid var(--border); color:var(--text2); padding:10px 18px; font-size:14px; font-weight:600; border-radius:8px; cursor:pointer; font-family:inherit; transition:all 0.2s; }
+.btn-cancel:hover { border-color:var(--text2); color:var(--text); }
+.btn-save { background:var(--accent); border:none; color:#000; padding:10px 22px; font-size:14px; font-weight:700; border-radius:8px; cursor:pointer; font-family:inherit; transition:opacity 0.2s; }
+.btn-save:hover { opacity:0.85; }
+
+/* Misc */
+.loading { display:flex; align-items:center; gap:12px; padding:20px; color:var(--text2); font-size:14px; }
+.spinner { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; flex-shrink:0; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.error-box { background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.3); color:var(--red); padding:14px 18px; border-radius:8px; font-size:14px; line-height:1.5; }
+.hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">Stock<span>AI</span></div>
+  <div class="header-right">
+    <div class="live-dot" id="liveDot" style="display:none"></div>
+    <span class="live-label" id="liveLabel" style="display:none">실시간</span>
+    <button class="btn-outline" onclick="openSettings()">API 키 설정</button>
+  </div>
+</div>
+
+<div class="search-wrap">
+  <div class="search-row">
+    <input class="search-input" id="searchInput" type="text"
+      placeholder="종목명 또는 티커 (예: 삼성전자, AAPL, 005930.KS)"
+      onkeydown="if(event.key==='Enter') doSearch()">
+    <button class="search-btn" id="searchBtn" onclick="doSearch()">분석</button>
+  </div>
+  <p class="search-hint">국내: 005930.KS · 해외: AAPL · TSLA · NVDA · TSMC</p>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('analyze')">종목 분석</button>
+    <button class="tab" onclick="switchTab('screener')">저평가 발굴</button>
+    <button class="tab" onclick="switchTab('watchlist')">관심 종목</button>
+  </div>
+</div>
+
+<div class="main" id="main"></div>
+
+<!-- Settings Modal -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <div class="modal-title">Claude API 키 설정</div>
+    <div class="modal-desc">Anthropic Console에서 발급받은 API 키를 입력하세요.<br>키는 이 기기에만 저장되며 외부로 전송되지 않습니다.</div>
+    <label for="apiKeyInput">API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-...">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSettings()">취소</button>
+      <button class="btn-save" onclick="saveSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let chart = null;
+let currentTicker = null;
+let currentName = null;
+let currentMeta = null;
+let refreshInterval = null;
+let activeTab = 'analyze';
+let watchlist = JSON.parse(localStorage.getItem('sa_watchlist') || '[]');
+
+// ── Settings ──
+function openSettings() {
+  document.getElementById('apiKeyInput').value = localStorage.getItem('sa_apikey') || '';
+  document.getElementById('settingsModal').classList.add('open');
+}
+function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
+function saveSettings() {
+  const k = document.getElementById('apiKeyInput').value.trim();
+  if (k) localStorage.setItem('sa_apikey', k);
+  closeSettings();
+}
+document.getElementById('settingsModal').addEventListener('click', e => { if (e.target.classList.contains('modal-backdrop')) closeSettings(); });
+
+// ── Tabs ──
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', ['analyze','screener','watchlist'][i] === tab);
+  });
+  if (tab === 'analyze') renderAnalyzeTab();
+  else if (tab === 'screener') renderScreenerTab();
+  else renderWatchlistTab();
+}
+
+// ── Watchlist ──
+function renderWatchlistTab() {
+  const main = document.getElementById('main');
+  if (watchlist.length === 0) {
+    main.innerHTML = `<div class="watchlist-card"><div class="watchlist-title">관심 종목</div><div class="watchlist-empty">저장된 종목이 없습니다.</div></div>`;
+    return;
+  }
+  main.innerHTML = `<div class="watchlist-card">
+    <div class="watchlist-title">관심 종목 (${watchlist.length})</div>
+    <div class="watchlist-items">${watchlist.map(w => `
+      <div class="watchlist-item" onclick="loadTicker('${w.ticker}')">
+        <span class="watchlist-item-ticker">${w.ticker}</span>
+        <span class="watchlist-item-name">${w.name}</span>
+        <button class="watchlist-item-remove" onclick="event.stopPropagation();removeWatch('${w.ticker}')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+function addWatch() {
+  if (!currentTicker) return;
+  if (!watchlist.find(w => w.ticker === currentTicker)) {
+    watchlist.push({ ticker: currentTicker, name: currentName || currentTicker });
+    localStorage.setItem('sa_watchlist', JSON.stringify(watchlist));
+  }
+  document.getElementById('watchBtn').classList.add('watching');
+  document.getElementById('watchBtn').querySelector('span').textContent = '관심 종목 저장됨';
+}
+function removeWatch(ticker) {
+  watchlist = watchlist.filter(w => w.ticker !== ticker);
+  localStorage.setItem('sa_watchlist', JSON.stringify(watchlist));
+  if (activeTab === 'watchlist') renderWatchlistTab();
+}
+function loadTicker(ticker) {
+  document.getElementById('searchInput').value = ticker;
+  switchTab('analyze');
+  doSearch();
+}
+
+// ── Ticker normalization ──
+function normalizeTicker(raw) {
+  const s = raw.trim().toUpperCase().replace(/\s+/g,'');
+  if (/^\d{6}$/.test(s)) return s + '.KS';
+  const kr = {'삼성전자':'005930.KS','삼성':'005930.KS','SK하이닉스':'000660.KS','LG에너지솔루션':'373220.KS',
+    '카카오':'035720.KS','네이버':'035420.KS','NAVER':'035420.KS','현대차':'005380.KS','현대자동차':'005380.KS',
+    '기아':'000270.KS','셀트리온':'068270.KS','POSCO':'005490.KS','포스코':'005490.KS',
+    '삼성바이오로직스':'207940.KS','KB금융':'105560.KS','신한지주':'055550.KS','LG화학':'051910.KS','카카오뱅크':'323410.KS'};
+  return kr[raw.trim()] || s;
+}
+
+// ── Data fetching ──
+const PROXY = 'https://corsproxy.io/?';
+async function yf(path) {
+  const url = 'https://query1.finance.yahoo.com' + path;
+  const res = await fetch(PROXY + encodeURIComponent(url));
+  if (!res.ok) throw new Error('데이터 조회 실패');
+  return res.json();
+}
+
+async function fetchStockData(ticker) {
+  const json = await yf(`/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=3mo&includePrePost=false`);
+  const r = json.chart?.result?.[0];
+  if (!r) throw new Error('종목을 찾을 수 없습니다. 티커를 확인해주세요.');
+  return r;
+}
+
+async function fetchFinancials(ticker) {
+  try {
+    const modules = 'financialData,defaultKeyStatistics,summaryDetail';
+    const json = await yf(`/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=${modules}`);
+    return json.quoteSummary?.result?.[0] || {};
+  } catch { return {}; }
+}
+
+// ── Claude API ──
+async function callClaude(prompt, maxTokens = 900) {
+  const key = localStorage.getItem('sa_apikey');
+  if (!key) throw new Error('API 키가 없습니다. 우측 상단 "API 키 설정"을 눌러주세요.');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error?.message || 'AI 호출 실패'); }
+  const data = await res.json();
+  const text = data.content[0].text.trim();
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('AI 응답 파싱 실패');
+  return JSON.parse(m[0]);
+}
+
+async function fetchAIAnalysis(ticker, meta, fin) {
+  const prompt = `다음 주식 정보를 분석하고 JSON만 반환해 (설명, 마크다운 없이 순수 JSON).
+
+종목: ${meta.name} (${ticker})
+현재가: ${meta.price} ${meta.currency}
+등락률: ${meta.changePercent}%
+52주 고가/저가: ${meta.high52} / ${meta.low52}
+시가총액: ${meta.marketCap}
+PER: ${meta.pe}
+PBR: ${fin.defaultKeyStatistics?.priceToBook?.fmt || '–'}
+ROE: ${fin.financialData?.returnOnEquity?.fmt || '–'}
+영업이익률: ${fin.financialData?.operatingMargins?.fmt || '–'}
+부채비율: ${fin.financialData?.debtToEquity?.fmt || '–'}
+매출 성장률(YoY): ${fin.financialData?.revenueGrowth?.fmt || '–'}
+현금흐름: ${fin.financialData?.freeCashflow?.fmt || '–'}
+목표주가(애널리스트): ${fin.financialData?.targetMeanPrice?.fmt || '–'}
+
+{
+  "verdict": "BUY" | "SELL" | "HOLD",
+  "verdict_reason": "한 문장 핵심 이유 (한국어)",
+  "undervaluation_score": 0~100 정수 (100에 가까울수록 저평가),
+  "undervaluation_comment": "저평가/고평가 판단 한 문장 (한국어)",
+  "positives": ["호재1","호재2","호재3"],
+  "negatives": ["악재1","악재2","악재3"],
+  "outlook": "6~12개월 전망 2~3문장 (한국어)"
+}`;
+  return callClaude(prompt);
+}
+
+// ── Helpers ──
+function fmt(n) {
+  if (n == null || isNaN(n)) return '–';
+  if (Math.abs(n) >= 1e12) return (n/1e12).toFixed(1)+'T';
+  if (Math.abs(n) >= 1e9)  return (n/1e9).toFixed(1)+'B';
+  if (Math.abs(n) >= 1e6)  return (n/1e6).toFixed(1)+'M';
+  return n.toLocaleString();
+}
+function fmtP(n, cur) {
+  if (n == null || isNaN(n)) return '–';
+  if (cur === 'KRW') return n.toLocaleString()+'원';
+  return '$'+n.toFixed(2);
+}
+function timeStr() {
+  return new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+
+// ── Render analyze tab ──
+function renderAnalyzeTab() {
+  document.getElementById('main').innerHTML = `<div class="watchlist-card" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 24px">
+    <div style="font-size:13px;color:var(--text2)">위에서 종목을 검색하면 분석이 시작됩니다.</div>
+  </div>`;
+}
+
+// ── Render stock + AI ──
+function renderStockCard(ticker, result, skipAI) {
+  const meta = result.meta;
+  const timestamps = result.timestamp || [];
+  const closes = result.indicators?.quote?.[0]?.close || [];
+  const price = meta.regularMarketPrice || meta.previousClose;
+  const prev  = meta.chartPreviousClose || meta.previousClose;
+  const change = price - prev;
+  const changePct = (change / prev * 100);
+  const currency = meta.currency;
+  const name = meta.longName || meta.shortName || ticker;
+  currentTicker = ticker;
+  currentName = name;
+
+  const isUp = changePct >= 0;
+  const cls  = isUp ? 'up' : 'down';
+  const sign = isUp ? '+' : '';
+  const high52 = meta.fiftyTwoWeekHigh;
+  const low52  = meta.fiftyTwoWeekLow;
+  const mktCap = meta.marketCap;
+  const pe     = meta.trailingPE;
+  const validCloses = closes.filter(c => c != null);
+  const periodHigh  = Math.max(...validCloses);
+  const periodLow   = Math.min(...validCloses);
+  const labels = timestamps.map(t => {
+    const d = new Date(t * 1000);
+    return (d.getMonth()+1)+'/'+d.getDate();
+  });
+  const isWatching = watchlist.some(w => w.ticker === ticker);
+
+  currentMeta = { name, price, currency,
+    changePercent: changePct.toFixed(2),
+    high52: fmtP(high52, currency), low52: fmtP(low52, currency),
+    marketCap: fmt(mktCap), pe: pe ? pe.toFixed(1) : '–',
+    periodHigh: fmtP(periodHigh, currency), periodLow: fmtP(periodLow, currency)
+  };
+
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="stock-card" id="stockCard">
+      <div class="stock-header">
+        <div>
+          <div class="stock-ticker">${ticker}</div>
+          <div class="stock-name">${name}</div>
+        </div>
+        <div class="stock-price-wrap">
+          <div class="stock-price" id="livePrice">${fmtP(price, currency)}</div>
+          <div class="stock-change ${cls}" id="liveChange">${sign}${fmtP(Math.abs(change), currency)} (${sign}${changePct.toFixed(2)}%)</div>
+          <div class="refresh-time" id="refreshTime">갱신: ${timeStr()}</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+      <div class="stock-meta">
+        <div class="meta-item"><div class="meta-label">52주 고가</div><div class="meta-value">${fmtP(high52, currency)}</div></div>
+        <div class="meta-item"><div class="meta-label">52주 저가</div><div class="meta-value">${fmtP(low52, currency)}</div></div>
+        <div class="meta-item"><div class="meta-label">시가총액</div><div class="meta-value">${fmt(mktCap)}</div></div>
+        <div class="meta-item"><div class="meta-label">PER</div><div class="meta-value">${pe ? pe.toFixed(1)+'배' : '–'}</div></div>
+        <div class="meta-item"><div class="meta-label">3M 최고</div><div class="meta-value">${fmtP(periodHigh, currency)}</div></div>
+        <div class="meta-item"><div class="meta-label">3M 최저</div><div class="meta-value">${fmtP(periodLow, currency)}</div></div>
+      </div>
+      <button class="watch-btn ${isWatching ? 'watching' : ''}" id="watchBtn" onclick="addWatch()">
+        <svg viewBox="0 0 16 16" fill="${isWatching ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8">
+          <path d="M8 1.5l1.8 3.6 4 .6-2.9 2.8.7 4L8 10.3l-3.6 2.2.7-4L2.2 5.7l4-.6z"/>
+        </svg>
+        <span>${isWatching ? '관심 종목 저장됨' : '관심 종목 추가'}</span>
+      </button>
+    </div>
+    <div class="ai-card" id="aiCard"><div class="loading"><div class="spinner"></div>AI 분석 중 (호재·악재·전망)...</div></div>`;
+
+  // Draw chart
+  if (chart) { chart.destroy(); chart = null; }
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  const color = isUp ? '#4ade80' : '#f87171';
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ data: closes, borderColor: color, backgroundColor: color+'18', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmtP(c.parsed.y, currency) } } },
+      scales: {
+        x: { grid: { color: '#262626' }, ticks: { color: '#777', maxTicksLimit: 6, font: { size: 11 } } },
+        y: { grid: { color: '#262626' }, ticks: { color: '#777', font: { size: 11 }, callback: v => fmtP(v, currency) }, position: 'right' }
+      }
+    }
+  });
+
+  // Start real-time refresh
+  startLiveRefresh(ticker, currency);
+}
+
+function renderAIResult(ai) {
+  const vClass = { BUY: 'verdict-buy', SELL: 'verdict-sell', HOLD: 'verdict-hold' }[ai.verdict] || 'verdict-hold';
+  const vLabel = { BUY: '매수', SELL: '매도', HOLD: '중립' }[ai.verdict] || ai.verdict;
+  const score  = ai.undervaluation_score ?? 50;
+  const scoreColor = score >= 65 ? 'var(--accent)' : score >= 40 ? 'var(--yellow)' : 'var(--red)';
+  const posItems = (ai.positives || []).map(p => `<li>${p}</li>`).join('');
+  const negItems = (ai.negatives || []).map(n => `<li>${n}</li>`).join('');
+
+  document.getElementById('aiCard').outerHTML = `
+    <div class="ai-card" id="aiCard">
+      <div class="ai-header"><span class="ai-badge">AI</span><span class="ai-title">종목 분석</span></div>
+      <div class="verdict">
+        <div class="verdict-badge ${vClass}">${vLabel}</div>
+        <div class="verdict-text">${ai.verdict_reason}</div>
+      </div>
+      <div class="underval-row">
+        <div class="underval-label">저평가 지수</div>
+        <div class="underval-bar-wrap">
+          <div class="underval-bar" style="width:${score}%;background:${scoreColor}"></div>
+        </div>
+        <div class="underval-score" style="color:${scoreColor}">${score}</div>
+      </div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;padding:0 4px">${ai.undervaluation_comment}</div>
+      <div class="factors-grid">
+        <div class="factor-box">
+          <div class="factor-label label-pos">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 13V3M3 8l5-5 5 5"/></svg>
+            호재
+          </div>
+          <ul class="factor-list">${posItems}</ul>
+        </div>
+        <div class="factor-box">
+          <div class="factor-label label-neg">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8l5 5 5-5"/></svg>
+            악재
+          </div>
+          <ul class="factor-list">${negItems}</ul>
+        </div>
+      </div>
+      <div class="outlook-box">
+        <div class="outlook-label">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 2"/></svg>
+          향후 전망 (6~12개월)
+        </div>
+        <div class="outlook-text">${ai.outlook}</div>
+      </div>
+    </div>`;
+}
+
+// ── Live price refresh ──
+function startLiveRefresh(ticker, currency) {
+  clearInterval(refreshInterval);
+  document.getElementById('liveDot').style.display = 'block';
+  document.getElementById('liveLabel').style.display = 'block';
+  refreshInterval = setInterval(async () => {
+    try {
+      const json = await yf(`/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1m&range=1d`);
+      const r = json.chart?.result?.[0];
+      if (!r) return;
+      const meta = r.meta;
+      const price = meta.regularMarketPrice || meta.previousClose;
+      const prev  = meta.chartPreviousClose || meta.previousClose;
+      const change = price - prev;
+      const changePct = (change / prev * 100);
+      const isUp = changePct >= 0;
+      const sign = isUp ? '+' : '';
+      const priceEl  = document.getElementById('livePrice');
+      const changeEl = document.getElementById('liveChange');
+      const timeEl   = document.getElementById('refreshTime');
+      if (priceEl)  priceEl.textContent = fmtP(price, currency);
+      if (changeEl) {
+        changeEl.textContent = `${sign}${fmtP(Math.abs(change), currency)} (${sign}${changePct.toFixed(2)}%)`;
+        changeEl.className = `stock-change ${isUp ? 'up' : 'down'}`;
+      }
+      if (timeEl) timeEl.textContent = '갱신: ' + timeStr();
+    } catch {}
+  }, 30000);
+}
+
+// ── Screener ──
+function renderScreenerTab() {
+  document.getElementById('main').innerHTML = `
+    <div class="screener-card">
+      <div class="screener-title">저평가 종목 발굴</div>
+      <div class="screener-desc">분석하고 싶은 종목들을 쉼표로 입력하면 AI가 재무제표를 기반으로 저평가 여부를 분석합니다.</div>
+      <div class="screener-inputs">
+        <div class="screener-input-group" style="flex:1;min-width:200px">
+          <label>종목 (쉼표 구분)</label>
+          <input class="screener-input" id="screenerTickers" style="width:100%" placeholder="AAPL, TSLA, 005930.KS" value="">
+        </div>
+        <button class="screener-btn" id="screenerBtn" onclick="runScreener()">분석 시작</button>
+      </div>
+      <div id="screenerResults"></div>
+    </div>`;
+}
+
+async function runScreener() {
+  const raw = document.getElementById('screenerTickers').value;
+  const tickers = raw.split(',').map(t => normalizeTicker(t.trim())).filter(Boolean);
+  if (tickers.length === 0) return;
+  const btn = document.getElementById('screenerBtn');
+  btn.disabled = true; btn.textContent = '분석 중...';
+  const results = document.getElementById('screenerResults');
+  results.innerHTML = `<div class="loading"><div class="spinner"></div>${tickers.length}개 종목 분석 중...</div>`;
+
+  const items = [];
+  for (const ticker of tickers) {
+    try {
+      const [chartData, finData] = await Promise.all([fetchStockData(ticker), fetchFinancials(ticker)]);
+      const meta = chartData.meta;
+      const price  = meta.regularMarketPrice || meta.previousClose;
+      const currency = meta.currency;
+      const name = meta.longName || meta.shortName || ticker;
+      const pe = meta.trailingPE;
+      const pbr = finData.defaultKeyStatistics?.priceToBook?.raw;
+      const roe = finData.financialData?.returnOnEquity?.raw;
+      const rev = finData.financialData?.revenueGrowth?.raw;
+      const margin = finData.financialData?.operatingMargins?.raw;
+      const targetPrice = finData.financialData?.targetMeanPrice?.raw;
+
+      const prompt = `다음 종목의 저평가 여부를 판단하고 JSON만 반환해.
+
+${name} (${ticker})
+현재가: ${fmtP(price, currency)}
+PER: ${pe?.toFixed(1) || '–'}
+PBR: ${pbr?.toFixed(2) || '–'}
+ROE: ${roe ? (roe*100).toFixed(1)+'%' : '–'}
+매출성장: ${rev ? (rev*100).toFixed(1)+'%' : '–'}
+영업이익률: ${margin ? (margin*100).toFixed(1)+'%' : '–'}
+목표주가: ${targetPrice ? fmtP(targetPrice, currency) : '–'}
+
+{
+  "undervaluation_score": 0~100 정수,
+  "reason": "저평가/고평가 이유 2~3문장 (한국어)"
+}`;
+      const ai = await callClaude(prompt, 400);
+      items.push({ ticker, name, price, currency, pe, pbr, roe, rev, margin, score: ai.undervaluation_score, reason: ai.reason });
+    } catch (e) {
+      items.push({ ticker, name: ticker, error: e.message });
+    }
+  }
+
+  items.sort((a, b) => (b.score||0) - (a.score||0));
+  results.innerHTML = items.map(item => {
+    if (item.error) return `<div class="screener-item"><div class="screener-item-header"><span class="screener-item-name">${item.ticker}</span><span style="color:var(--red);font-size:13px">오류</span></div><div style="font-size:13px;color:var(--text2)">${item.error}</div></div>`;
+    const score = item.score ?? 0;
+    const sc = score >= 65 ? 'score-high' : 'score-mid';
+    return `<div class="screener-item" onclick="loadTicker('${item.ticker}')">
+      <div class="screener-item-header">
+        <span class="screener-item-name">${item.name} <span style="color:var(--text2);font-size:12px;font-weight:400">${item.ticker}</span></span>
+        <span class="screener-item-score ${sc}">저평가 ${score}점</span>
+      </div>
+      <div class="screener-item-metrics">
+        <div class="screener-metric">현재가<span>${fmtP(item.price, item.currency)}</span></div>
+        ${item.pe ? `<div class="screener-metric">PER<span>${item.pe.toFixed(1)}배</span></div>` : ''}
+        ${item.pbr ? `<div class="screener-metric">PBR<span>${item.pbr.toFixed(2)}배</span></div>` : ''}
+        ${item.roe ? `<div class="screener-metric">ROE<span>${(item.roe*100).toFixed(1)}%</span></div>` : ''}
+        ${item.rev ? `<div class="screener-metric">매출성장<span>${(item.rev*100).toFixed(1)}%</span></div>` : ''}
+      </div>
+      <div class="screener-item-reason">${item.reason}</div>
+    </div>`;
+  }).join('');
+
+  btn.disabled = false; btn.textContent = '분석 시작';
+}
+
+// ── Main search ──
+async function doSearch() {
+  const raw = document.getElementById('searchInput').value.trim();
+  if (!raw) return;
+  const ticker = normalizeTicker(raw);
+  switchTab('analyze');
+  clearInterval(refreshInterval);
+  document.getElementById('liveDot').style.display = 'none';
+  document.getElementById('liveLabel').style.display = 'none';
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true; btn.textContent = '분석 중...';
+
+  try {
+    const [chartData, finData] = await Promise.all([fetchStockData(ticker), fetchFinancials(ticker)]);
+    renderStockCard(ticker, chartData);
+    try {
+      const ai = await fetchAIAnalysis(ticker, currentMeta, finData);
+      renderAIResult(ai);
+    } catch (e) {
+      document.getElementById('aiCard').outerHTML = `<div class="ai-card" id="aiCard"><div class="error-box">${e.message}</div></div>`;
+    }
+  } catch (e) {
+    document.getElementById('main').innerHTML = `<div class="error-box">${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '분석';
+  }
+}
+
+// ── Init ──
+renderAnalyzeTab();
+if (!localStorage.getItem('sa_apikey')) openSettings();
+</script>
+</body>
+</html>
